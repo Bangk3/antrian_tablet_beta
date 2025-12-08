@@ -16,6 +16,12 @@ import os
 import sys
 import re
 import time
+import subprocess
+import platform
+
+# Deteksi platform
+IS_TERMUX = 'com.termux' in os.environ.get('PREFIX', '')
+IS_ANDROID = platform.system() == 'Linux' and os.path.exists('/system/build.prop')
 
 # Import conditional berdasarkan platform
 try:
@@ -25,10 +31,13 @@ try:
 except ImportError:
     PYDUB_AVAILABLE = False
 
-# Fallback: gunakan pygame untuk Windows
+# Fallback: gunakan pygame untuk Windows (tidak di Termux)
 try:
-    import pygame
-    PYGAME_AVAILABLE = True
+    if not IS_TERMUX:
+        import pygame
+        PYGAME_AVAILABLE = True
+    else:
+        PYGAME_AVAILABLE = False
 except ImportError:
     PYGAME_AVAILABLE = False
 
@@ -146,8 +155,25 @@ def play_with_pydub(queue_str, letter, number, parts):
         print(f"  Saving combined audio to: {TEMP_OUTPUT}")
         combined.export(TEMP_OUTPUT, format="wav")
         
-        # Play menggunakan pygame
-        if PYGAME_AVAILABLE:
+        # Play berdasarkan platform
+        if IS_TERMUX:
+            # Termux: gunakan ffplay atau termux-media-player
+            print(f"  Playing with ffplay (Termux)...")
+            try:
+                # Coba ffplay dulu (dari pkg install ffmpeg)
+                subprocess.run(['ffplay', '-nodisp', '-autoexit', '-loglevel', 'quiet', TEMP_OUTPUT], check=True)
+                print(f"  ✓ Finished playing {queue_str}")
+            except FileNotFoundError:
+                # Fallback: termux-media-player (perlu termux-api)
+                try:
+                    subprocess.run(['termux-media-player', 'play', TEMP_OUTPUT], check=True)
+                    print(f"  ✓ Finished playing {queue_str}")
+                except FileNotFoundError:
+                    print(f"  ✗ Install ffmpeg: pkg install ffmpeg")
+                    print(f"  Or install termux-api: pkg install termux-api")
+                    return False
+        elif PYGAME_AVAILABLE:
+            # Windows/Linux dengan pygame
             pygame.mixer.init()
             pygame.mixer.music.load(TEMP_OUTPUT)
             pygame.mixer.music.play()
@@ -159,10 +185,14 @@ def play_with_pydub(queue_str, letter, number, parts):
             pygame.mixer.quit()
             print(f"  ✓ Finished playing {queue_str}")
         else:
-            # Fallback: buka dengan default media player
+            # Windows fallback: default media player
             print(f"  ✓ Audio saved to {TEMP_OUTPUT}")
             print(f"  Playing with default media player...")
-            os.startfile(TEMP_OUTPUT)  # Windows only
+            if hasattr(os, 'startfile'):
+                os.startfile(TEMP_OUTPUT)
+            else:
+                # Linux/Mac fallback
+                subprocess.run(['xdg-open', TEMP_OUTPUT])
         
         return True
         
