@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistem Antrian - Control Panel</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            color: #333;
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .header .subtitle {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .status-section {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+
+        .status-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        .status-row:last-child {
+            margin-bottom: 0;
+            padding-bottom: 0;
+            border-bottom: none;
+        }
+
+        .status-label {
+            color: #6c757d;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .status-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .status-value.called {
+            color: #28a745;
+        }
+
+        .status-value.next {
+            color: #007bff;
+        }
+
+        .connection-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .connection-status.connected {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .connection-status.disconnected {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .connection-status::before {
+            content: '';
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: currentColor;
+        }
+
+        .controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            padding: 20px;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-call {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            grid-column: 1 / -1;
+            font-size: 20px;
+            padding: 25px;
+        }
+
+        .btn-recall {
+            background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%);
+            color: white;
+        }
+
+        .btn-print {
+            background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+            color: white;
+        }
+
+        .btn-reset {
+            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+            color: white;
+            grid-column: 1 / -1;
+            font-size: 14px;
+            padding: 15px;
+        }
+
+        .info-box {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+
+        .info-box p {
+            color: #856404;
+            font-size: 13px;
+            line-height: 1.6;
+            margin-bottom: 8px;
+        }
+
+        .info-box p:last-child {
+            margin-bottom: 0;
+        }
+
+        .info-box strong {
+            font-weight: 600;
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 25px;
+            }
+
+            .header h1 {
+                font-size: 24px;
+            }
+
+            .status-value {
+                font-size: 20px;
+            }
+
+            .btn {
+                padding: 15px;
+                font-size: 14px;
+            }
+
+            .btn-call {
+                font-size: 18px;
+                padding: 20px;
+            }
+        }
+
+        /* Animasi untuk status update */
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.7;
+            }
+        }
+
+        .updating {
+            animation: pulse 0.5s ease-in-out;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎫 Sistem Antrian</h1>
+            <p class="subtitle">Control Panel v1.0</p>
+        </div>
+
+        <div class="status-section">
+            <div class="status-row">
+                <span class="status-label">Nomor Dipanggil:</span>
+                <span class="status-value called" id="currentCalled">-</span>
+            </div>
+            <div class="status-row">
+                <span class="status-label">Nomor Selanjutnya:</span>
+                <span class="status-value next" id="nextQueue">-</span>
+            </div>
+            <div class="status-row">
+                <span class="status-label">Status ESP32:</span>
+                <span class="connection-status disconnected" id="esp32Status">DISCONNECTED</span>
+            </div>
+            <div class="status-row">
+                <span class="status-label">Status Server:</span>
+                <span class="connection-status disconnected" id="serverStatus">DISCONNECTED</span>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button class="btn btn-call" id="btnCall" onclick="sendCommand('CALL')" disabled>
+                📢 PANGGIL
+            </button>
+            <button class="btn btn-recall" id="btnRecall" onclick="sendCommand('RECALL')" disabled>
+                🔁 PANGGIL ULANG
+            </button>
+            <button class="btn btn-print" id="btnPrint" onclick="sendCommand('PRINT')" disabled>
+                🖨️ CETAK NOMOR
+            </button>
+            <button class="btn btn-reset" id="btnReset" onclick="sendCommand('RESET')" disabled>
+                ⚠️ RESET SISTEM
+            </button>
+        </div>
+
+        <div class="info-box">
+            <p><strong>CALL:</strong> Panggil nomor antrian berikutnya dan tampilkan di display.</p>
+            <p><strong>RECALL:</strong> Panggil ulang nomor yang terakhir dipanggil.</p>
+            <p><strong>PRINT:</strong> Cetak nomor antrian baru untuk pengunjung.</p>
+            <p><strong>RESET:</strong> Reset sistem ke nomor A001 (gunakan dengan hati-hati).</p>
+        </div>
+    </div>
+
+    <script>
+        // =====================================================
+        // WEBSOCKET CONNECTION
+        // =====================================================
+        let ws = null;
+        let reconnectInterval = null;
+
+        // Elements
+        const btnCall = document.getElementById('btnCall');
+        const btnRecall = document.getElementById('btnRecall');
+        const btnPrint = document.getElementById('btnPrint');
+        const btnReset = document.getElementById('btnReset');
+        const currentCalled = document.getElementById('currentCalled');
+        const nextQueue = document.getElementById('nextQueue');
+        const esp32Status = document.getElementById('esp32Status');
+        const serverStatus = document.getElementById('serverStatus');
+
+        // Connect to WebSocket Server
+        function connect() {
+            console.log('[WS] Connecting to server...');
+            
+            ws = new WebSocket('ws://127.0.0.1:8080');
+
+            ws.onopen = () => {
+                console.log('[WS] Connected to server');
+                updateServerStatus(true);
+                enableButtons();
+                
+                // Clear reconnect interval
+                if (reconnectInterval) {
+                    clearInterval(reconnectInterval);
+                    reconnectInterval = null;
+                }
+            };
+
+            ws.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    console.log('[WS] Received:', data);
+
+                    if (data.type === 'status') {
+                        updateStatus(data);
+                    }
+                } catch (err) {
+                    console.error('[WS] Error parsing message:', err);
+                }
+            };
+
+            ws.onclose = () => {
+                console.log('[WS] Disconnected from server');
+                updateServerStatus(false);
+                disableButtons();
+                
+                // Auto reconnect setiap 3 detik
+                if (!reconnectInterval) {
+                    reconnectInterval = setInterval(() => {
+                        console.log('[WS] Attempting to reconnect...');
+                        connect();
+                    }, 3000);
+                }
+            };
+
+            ws.onerror = (error) => {
+                console.error('[WS] Error:', error);
+            };
+        }
+
+        // Send command to server
+        function sendCommand(command) {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                const data = { command: command };
+                ws.send(JSON.stringify(data));
+                console.log('[WS] Sent:', data);
+                
+                // Visual feedback
+                const button = event.target;
+                button.classList.add('updating');
+                setTimeout(() => {
+                    button.classList.remove('updating');
+                }, 500);
+            } else {
+                alert('Tidak terhubung ke server!');
+            }
+        }
+
+        // Update status display
+        function updateStatus(data) {
+            currentCalled.textContent = data.currentCalled;
+            nextQueue.textContent = data.nextQueue;
+            
+            // Update ESP32 status
+            if (data.esp32Connected) {
+                esp32Status.textContent = 'CONNECTED';
+                esp32Status.className = 'connection-status connected';
+            } else {
+                esp32Status.textContent = 'DISCONNECTED';
+                esp32Status.className = 'connection-status disconnected';
+            }
+            
+            // Add animation
+            currentCalled.classList.add('updating');
+            nextQueue.classList.add('updating');
+            setTimeout(() => {
+                currentCalled.classList.remove('updating');
+                nextQueue.classList.remove('updating');
+            }, 500);
+        }
+
+        // Update server status
+        function updateServerStatus(connected) {
+            if (connected) {
+                serverStatus.textContent = 'CONNECTED';
+                serverStatus.className = 'connection-status connected';
+            } else {
+                serverStatus.textContent = 'DISCONNECTED';
+                serverStatus.className = 'connection-status disconnected';
+            }
+        }
+
+        // Enable all buttons
+        function enableButtons() {
+            btnCall.disabled = false;
+            btnRecall.disabled = false;
+            btnPrint.disabled = false;
+            btnReset.disabled = false;
+        }
+
+        // Disable all buttons
+        function disableButtons() {
+            btnCall.disabled = true;
+            btnRecall.disabled = true;
+            btnPrint.disabled = true;
+            btnReset.disabled = true;
+        }
+
+        // Initialize connection on page load
+        window.addEventListener('load', () => {
+            console.log('[APP] Initializing...');
+            connect();
+        });
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            if (ws) {
+                ws.close();
+            }
+        });
+    </script>
+</body>
+</html>

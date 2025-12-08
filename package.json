@@ -1,0 +1,23 @@
+{
+  "name": "antrian-tablet-system",
+  "version": "1.0.0",
+  "description": "Sistem Antrian dengan Tablet (Hotspot) dan ESP32 Display menggunakan WebSocket",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": [
+    "antrian",
+    "queue",
+    "websocket",
+    "esp32",
+    "tablet",
+    "p10"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "ws": "^8.14.2"
+  }
+}
