@@ -242,7 +242,7 @@ def play_queue_number(queue_str):
     Play audio untuk nomor antrian
     
     Args:
-        queue_str: Nomor antrian (misal: "A22", "B156")
+        queue_str: Nomor antrian (misal: "22", "156", atau "A22")
     
     Returns:
         bool: True jika berhasil, False jika error
@@ -251,11 +251,14 @@ def play_queue_number(queue_str):
     # Parse queue number
     letter, number = parse_queue_number(queue_str)
     
-    if letter is None or number is None:
+    if number is None:
         print(f"Error: Invalid queue format '{queue_str}'")
         return False
     
-    print(f"\nPlaying: {queue_str} (Letter: {letter}, Number: {number})")
+    if letter:
+        print(f"\nPlaying: {queue_str} (Letter: {letter}, Number: {number})")
+    else:
+        print(f"\nPlaying: {queue_str} (Number: {number})")
     
     # Get audio parts
     parts = number_to_audio_parts(number)

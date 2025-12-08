@@ -19,7 +19,14 @@ Cara kerja:
 
 from gtts import gTTS
 import os
-import urllib.request
+
+# Import for chime generation
+try:
+    from pydub import AudioSegment
+    from pydub.generators import Sine
+    PYDUB_AVAILABLE = True
+except ImportError:
+    PYDUB_AVAILABLE = False
 
 # Konfigurasi
 AUDIO_DIR = "audio"
@@ -39,39 +46,43 @@ def create_audio_file(text, filename, slow=False):
         print(f"✗ Error creating {filename}: {e}")
         return False
 
-def download_chime_sound():
-    """Download chime sound dari internet (jika tidak ada)"""
+def generate_chime_sound():
+    """Generate professional ding-dong chime untuk sistem antrian"""
     chime_path = os.path.join(AUDIO_DIR, "chime.mp3")
     
     if os.path.exists(chime_path):
         print(f"✓ Chime sound already exists: chime.mp3")
         return True
     
-    print("Downloading chime sound...")
+    print("Generating professional chime sound (ding-dong)...")
     
-    # URL chime sound gratis dari freesound.org
-    # Alternatif: bisa ganti dengan URL lain atau skip
-    chime_urls = [
-        "https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3",
-        "https://www.soundjay.com/misc/sounds/bell-ringing-01.mp3"
-    ]
-    
-    for url in chime_urls:
-        try:
-            print(f"  Trying: {url}")
-            urllib.request.urlretrieve(url, chime_path)
-            print(f"✓ Downloaded: chime.mp3")
-            return True
-        except Exception as e:
-            print(f"  Failed: {e}")
-            continue
-    
-    print("✗ Could not download chime sound automatically")
-    print(f"  Please download manually and save as: {chime_path}")
-    print("  Recommended sites:")
-    print("  - https://pixabay.com/sound-effects/search/ding/")
-    print("  - https://www.zapsplat.com/")
-    return False
+    try:
+        from pydub.generators import Sine
+        
+        # DING - Nada tinggi (800 Hz)
+        ding = Sine(800).to_audio_segment(duration=200)
+        ding = ding.fade_in(20).fade_out(50)
+        
+        # Pause
+        pause = AudioSegment.silent(duration=100)
+        
+        # DONG - Nada rendah (600 Hz)
+        dong = Sine(600).to_audio_segment(duration=250)
+        dong = dong.fade_in(20).fade_out(80)
+        
+        # Combine
+        chime = ding + pause + dong
+        chime = chime + 3  # +3 dB volume
+        
+        # Export
+        chime.export(chime_path, format="mp3")
+        print(f"✓ Created: chime.mp3 (professional ding-dong)")
+        return True
+        
+    except Exception as e:
+        print(f"✗ Could not generate chime: {e}")
+        print(f"  Alternative: Run 'python generate_chime.py' for more options")
+        return False
 
 def generate_audio_files():
     """Generate semua file audio yang diperlukan"""
@@ -86,8 +97,13 @@ def generate_audio_files():
     print("="*60)
     
     # 0. CHIME SOUND
-    print("\n0. Getting chime sound...")
-    download_chime_sound()
+    print("\n0. Generating chime sound...")
+    if PYDUB_AVAILABLE:
+        generate_chime_sound()
+    else:
+        print("✗ pydub not available, skipping chime generation")
+        print("  Install with: pip install pydub")
+        print("  Or run: python generate_chime.py")
     
     # 1. PREFIX dan SUFFIX (dengan slow=True untuk kejelasan)
     print("\n1. Generating prefix and suffix (slow mode for clarity)...")
@@ -139,11 +155,8 @@ def generate_audio_files():
     for num, text in hundreds.items():
         create_audio_file(text, f"{num}.mp3", slow=True)
     
-    # 5. Prefix huruf (A, B, C, dst)
-    print("\n5. Generating letter prefixes...")
-    letters = ['A', 'B', 'C', 'D', 'E', 'F']
-    for letter in letters:
-        create_audio_file(letter, f"letter_{letter}.mp3", slow=False)
+    # 5. SKIP letter prefixes (tidak digunakan lagi - hanya angka)
+    print("\n5. Letter prefixes skipped (number-only system)")
     
     print("\n" + "="*60)
     print("AUDIO GENERATION COMPLETE!")
@@ -155,12 +168,12 @@ def generate_audio_files():
     print("- 0.mp3 to 20.mp3 (21 files, slow mode)")
     print("- 30.mp3, 40.mp3, ..., 90.mp3 (7 files, slow mode)")
     print("- 100.mp3, 200.mp3, ..., 900.mp3 (9 files, slow mode)")
-    print("- letter_A.mp3 to letter_F.mp3 (6 files)")
-    print(f"\nTotal: ~46 files for support A001-F999")
+    print(f"\nTotal: ~40 files for support 001-999 (number only)")
     print("\nAudio improvements:")
     print("✓ Slow mode enabled for clarity")
     print("✓ Chime sound for attention")
     print("✓ Professional timing and pauses")
+    print("✓ Number-only system (no letter prefix)")
 
 if __name__ == "__main__":
     print("""
