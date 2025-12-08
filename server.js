@@ -2,6 +2,7 @@ const WebSocket = require('ws');
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const { exec } = require('child_process');
 
 // =====================================================
 // KONFIGURASI SERVER
@@ -13,7 +14,7 @@ const PORT = 8080;
 // =====================================================
 let nextQueueNumber = 1;        // Nomor berikutnya untuk dicetak
 let currentCalledNumber = null; // Nomor yang sedang dipanggil
-const queuePrefix = 'A';        // Prefix nomor antrian (A001, A002, dst)
+const queuePrefix = '';         // Tanpa prefix huruf (001, 002, dst)
 
 // =====================================================
 // HTTP SERVER (untuk melayani Web Interface)
@@ -79,19 +80,25 @@ function sendStatusToBrowser() {
     }
 }
 
-// Putar suara (Text-to-Speech) - Simulasi untuk Termux
+// Putar suara (Text-to-Speech) - Menggunakan Python Script dengan audio yang ditingkatkan
 function playAudio(queueNumber) {
-    console.log(`[AUDIO] Playing: "Nomor antrian ${queueNumber}, silakan ke loket"`);
+    console.log(`[AUDIO] Playing: ${queueNumber}`);
     
-    // CATATAN: Untuk implementasi di Android/Termux, gunakan:
-    // - termux-tts-speak untuk Text-to-Speech
-    // - atau simpan file audio dan putar dengan termux-media-player
-    
-    // Contoh perintah Termux (uncomment jika di Android):
-    // const { exec } = require('child_process');
-    // exec(`termux-tts-speak "Nomor antrian ${queueNumber}, silakan ke loket"`, (error) => {
-    //     if (error) console.error('[AUDIO] Error:', error);
-    // });
+    // Jalankan Python script untuk play audio
+    // Audio sudah include: chime sound, slow mode gTTS, dan timing profesional
+    exec(`python audio_player.py ${queueNumber}`, (error, stdout, stderr) => {
+        if (error) {
+            console.error('[AUDIO] Error:', error.message);
+            console.error('[AUDIO] Make sure: 1) audio/ folder exists, 2) pygame installed');
+            return;
+        }
+        if (stderr && stderr.trim() !== '') {
+            console.error('[AUDIO] Stderr:', stderr);
+        }
+        if (stdout && stdout.trim() !== '') {
+            console.log('[AUDIO] Output:', stdout.trim());
+        }
+    });
 }
 
 // Cetak nomor antrian via Bluetooth
