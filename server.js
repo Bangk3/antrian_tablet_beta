@@ -197,12 +197,7 @@ function handleBrowserCommand(command) {
     switch (command) {
         case 'CALL':
             // Panggil nomor antrian berikutnya
-            if (nextQueueNumber > 1) {
-                currentCalledNumber = formatQueueNumber(nextQueueNumber - 1);
-            } else {
-                currentCalledNumber = formatQueueNumber(1);
-                nextQueueNumber = 2;
-            }
+            currentCalledNumber = formatQueueNumber(nextQueueNumber);
             
             console.log(`[CALL] Calling queue: ${currentCalledNumber}`);
             
@@ -212,7 +207,10 @@ function handleBrowserCommand(command) {
             // 2. Kirim ke ESP32
             sendToESP32({ queue: currentCalledNumber });
             
-            // 3. Update status di browser
+            // 3. Increment nomor antrian untuk panggilan selanjutnya
+            nextQueueNumber++;
+            
+            // 4. Update status di browser
             sendStatusToBrowser();
             break;
 
