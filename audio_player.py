@@ -161,11 +161,22 @@ def play_with_pydub(queue_str, letter, number, parts):
             print(f"  Playing with ffplay (Termux)...")
             try:
                 # Coba ffplay dulu (dari pkg install ffmpeg)
-                subprocess.run(['ffplay', '-nodisp', '-autoexit', '-loglevel', 'quiet', TEMP_OUTPUT], check=True)
-                print(f"  ✓ Finished playing {queue_str}")
+                # Hapus -loglevel quiet untuk debugging
+                result = subprocess.run(['ffplay', '-nodisp', '-autoexit', TEMP_OUTPUT], 
+                                      capture_output=False, 
+                                      check=False)
+                if result.returncode == 0:
+                    print(f"  ✓ Finished playing {queue_str}")
+                else:
+                    print(f"  ✗ ffplay error code: {result.returncode}")
+                    print(f"  Trying alternative method...")
+                    # Fallback: play dengan volume control
+                    subprocess.run(['play', TEMP_OUTPUT], check=False)
             except FileNotFoundError:
+                print(f"  ✗ ffplay not found")
                 # Fallback: termux-media-player (perlu termux-api)
                 try:
+                    print(f"  Trying termux-media-player...")
                     subprocess.run(['termux-media-player', 'play', TEMP_OUTPUT], check=True)
                     print(f"  ✓ Finished playing {queue_str}")
                 except FileNotFoundError:
