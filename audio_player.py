@@ -157,32 +157,45 @@ def play_with_pydub(queue_str, letter, number, parts):
         
         # Play berdasarkan platform
         if IS_TERMUX:
-            # Termux: gunakan ffplay atau termux-media-player
-            print(f"  Playing with ffplay (Termux)...")
+            # Termux: prioritaskan sox (paling mudah), lalu ffplay
+            print(f"  Playing audio (Termux)...")
+            
+            # Method 1: sox/play (paling mudah - pkg install sox)
             try:
-                # Coba ffplay dulu (dari pkg install ffmpeg)
-                # Hapus -loglevel quiet untuk debugging
-                result = subprocess.run(['ffplay', '-nodisp', '-autoexit', TEMP_OUTPUT], 
-                                      capture_output=False, 
-                                      check=False)
-                if result.returncode == 0:
-                    print(f"  ✓ Finished playing {queue_str}")
-                else:
-                    print(f"  ✗ ffplay error code: {result.returncode}")
-                    print(f"  Trying alternative method...")
-                    # Fallback: play dengan volume control
-                    subprocess.run(['play', TEMP_OUTPUT], check=False)
+                subprocess.run(['play', '-q', TEMP_OUTPUT], check=True, capture_output=True)
+                print(f"  ✓ Finished playing {queue_str} (sox)")
+                return True
             except FileNotFoundError:
-                print(f"  ✗ ffplay not found")
-                # Fallback: termux-media-player (perlu termux-api)
-                try:
-                    print(f"  Trying termux-media-player...")
-                    subprocess.run(['termux-media-player', 'play', TEMP_OUTPUT], check=True)
-                    print(f"  ✓ Finished playing {queue_str}")
-                except FileNotFoundError:
-                    print(f"  ✗ Install ffmpeg: pkg install ffmpeg")
-                    print(f"  Or install termux-api: pkg install termux-api")
-                    return False
+                pass  # sox tidak terinstall
+            except subprocess.CalledProcessError:
+                pass  # error saat play
+            
+            # Method 2: ffplay (perlu x11-repo & ffmpeg)
+            try:
+                subprocess.run(['ffplay', '-nodisp', '-autoexit', '-loglevel', 'quiet', TEMP_OUTPUT], 
+                             check=True, capture_output=True)
+                print(f"  ✓ Finished playing {queue_str} (ffplay)")
+                return True
+            except FileNotFoundError:
+                pass  # ffplay tidak terinstall
+            except subprocess.CalledProcessError:
+                pass  # error saat ffplay
+            
+            # Method 3: termux-media-player (perlu termux-api)
+            try:
+                subprocess.run(['termux-media-player', 'play', TEMP_OUTPUT], check=True)
+                print(f"  ✓ Finished playing {queue_str} (termux-media-player)")
+                return True
+            except (FileNotFoundError, subprocess.CalledProcessError):
+                pass
+            
+            # Gagal semua
+            print(f"  ✗ No audio player found in Termux!")
+            print(f"  Install one of these:")
+            print(f"    • pkg install sox (recommended - easiest)")
+            print(f"    • pkg install x11-repo && pkg install ffmpeg")
+            print(f"    • pkg install termux-api")
+            return False
         elif PYGAME_AVAILABLE:
             # Windows/Linux dengan pygame
             pygame.mixer.init()
