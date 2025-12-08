@@ -33,64 +33,78 @@ AUDIO_DIR = "audio"
 LANG = "id"  # Bahasa Indonesia
 
 def create_audio_file(text, filename, slow=False):
-    """Generate file audio dari text menggunakan gTTS"""
+    """Generate file audio dari text menggunakan gTTS dengan kualitas natural dan konversi ke WAV"""
     try:
-        # Gunakan slow=True untuk kejelasan yang lebih baik
-        tts = gTTS(text=text, lang=LANG, slow=slow)
-        filepath = os.path.join(AUDIO_DIR, filename)
-        tts.save(filepath)
-        speed_info = " (slow)" if slow else ""
-        print(f"✓ Created: {filename}{speed_info} - '{text}'")
+        # Gunakan normal speed untuk suara lebih natural
+        tts = gTTS(text=text, lang=LANG, slow=False)
+        
+        # Generate MP3 temporary file
+        mp3_filename = filename.replace('.mp3', '_temp.mp3')
+        wav_filename = filename.replace('.mp3', '.wav')
+        
+        mp3_path = os.path.join(AUDIO_DIR, mp3_filename)
+        wav_path = os.path.join(AUDIO_DIR, wav_filename)
+        tmp_wav_path = os.path.join(AUDIO_DIR, f"_tmp_{wav_filename}")
+        
+        tts.save(mp3_path)
+        
+        # Convert to 48kHz stereo 24-bit signed PCM for professional humanis quality
+        os.system(f'ffmpeg -y -loglevel quiet -i "{mp3_path}" -ar 48000 -ac 2 -c:a pcm_s24le -filter:a "volume=-3dB" "{tmp_wav_path}"')
+        
+        # Append 0.3s silence to avoid GTTS trimming/abrupt cutoff
+        os.system(f'ffmpeg -y -loglevel quiet -i "{tmp_wav_path}" -f lavfi -t 0.3 -i anullsrc=channel_layout=stereo:sample_rate=48000 -filter_complex "[0:a][1:a]concat=n=2:v=0:a=1[out]" -map "[out]" -c:a pcm_s24le "{wav_path}"')
+        
+        # Cleanup temporary files
+        if os.path.exists(tmp_wav_path):
+            os.remove(tmp_wav_path)
+        if os.path.exists(mp3_path):
+            os.remove(mp3_path)
+        
+        print(f"✓ Created: {wav_filename} - '{text}'")
         return True
     except Exception as e:
         print(f"✗ Error creating {filename}: {e}")
         return False
 
 def generate_chime_sound():
-    """Generate professional ding-dong chime untuk sistem antrian"""
-    chime_path = os.path.join(AUDIO_DIR, "chime.mp3")
+    """Convert chime.mp3 dari root folder ke WAV format dengan volume normalisasi"""
+    chime_mp3_root = "chime.mp3"  # File di root folder
+    chime_wav_path = os.path.join(AUDIO_DIR, "chime.wav")
     
-    if os.path.exists(chime_path):
-        print(f"✓ Chime sound already exists: chime.mp3")
+    if os.path.exists(chime_wav_path):
+        print(f"✓ Chime sound already exists: chime.wav")
         return True
     
-    print("Generating professional chime sound (ding-dong)...")
+    # Check if chime.mp3 exists in root
+    if not os.path.exists(chime_mp3_root):
+        print(f"✗ chime.mp3 not found in root folder")
+        return False
+    
+    print("Converting chime.mp3 to WAV format (48kHz 24-bit) dengan volume normalisasi...")
     
     try:
-        from pydub.generators import Sine
-        
-        # DING - Nada tinggi (800 Hz)
-        ding = Sine(800).to_audio_segment(duration=200)
-        ding = ding.fade_in(20).fade_out(50)
-        
-        # Pause
-        pause = AudioSegment.silent(duration=100)
-        
-        # DONG - Nada rendah (600 Hz)
-        dong = Sine(600).to_audio_segment(duration=250)
-        dong = dong.fade_in(20).fade_out(80)
-        
-        # Combine
-        chime = ding + pause + dong
-        chime = chime + 3  # +3 dB volume
-        
-        # Export
-        chime.export(chime_path, format="mp3")
-        print(f"✓ Created: chime.mp3 (professional ding-dong)")
+        # Convert chime.mp3 to WAV dengan volume dikurangi agar seimbang dengan suara lain
+        os.system(f'ffmpeg -y -loglevel quiet -i "{chime_mp3_root}" -ar 48000 -ac 2 -c:a pcm_s24le -filter:a "volume=-6dB" "{chime_wav_path}"')
+        print(f"✓ Converted: chime.mp3 -> chime.wav (volume balanced)")
         return True
         
     except Exception as e:
-        print(f"✗ Could not generate chime: {e}")
-        print(f"  Alternative: Run 'python generate_chime.py' for more options")
+        print(f"✗ Could not convert chime: {e}")
         return False
 
 def generate_audio_files():
     """Generate semua file audio yang diperlukan"""
     
-    # Buat folder audio jika belum ada
-    if not os.path.exists(AUDIO_DIR):
-        os.makedirs(AUDIO_DIR)
-        print(f"✓ Created directory: {AUDIO_DIR}/")
+    # Hapus folder audio lama jika ada
+    if os.path.exists(AUDIO_DIR):
+        import shutil
+        print(f"🗑️  Removing old audio files from {AUDIO_DIR}/...")
+        shutil.rmtree(AUDIO_DIR)
+        print(f"✓ Old audio files removed")
+    
+    # Buat folder audio baru
+    os.makedirs(AUDIO_DIR)
+    print(f"✓ Created fresh directory: {AUDIO_DIR}/")
     
     print("\n" + "="*60)
     print("GENERATING AUDIO FILES WITH IMPROVED CLARITY")
@@ -105,13 +119,13 @@ def generate_audio_files():
         print("  Install with: pip install pydub")
         print("  Or run: python generate_chime.py")
     
-    # 1. PREFIX dan SUFFIX (dengan slow=True untuk kejelasan)
-    print("\n1. Generating prefix and suffix (slow mode for clarity)...")
-    create_audio_file("Nomor antrian", "prefix.mp3", slow=True)
-    create_audio_file("silakan ke loket", "suffix.mp3", slow=True)
+    # 1. PREFIX dan SUFFIX (natural speed untuk lebih enak didengar)
+    print("\n1. Generating prefix and suffix (natural voice)...")
+    create_audio_file("Nomor antrian", "prefix.mp3")
+    create_audio_file("silakan ke loket", "suffix.mp3")
     
     # 2. Angka 0-20 (harus lengkap karena penyebutan khusus)
-    print("\n2. Generating 0-20 (clear pronunciation)...")
+    print("\n2. Generating 0-20 (natural pronunciation)...")
     numbers_0_20 = [
         "nol", "satu", "dua", "tiga", "empat", "lima", "enam", "tujuh", 
         "delapan", "sembilan", "sepuluh", "sebelas", "dua belas", 
@@ -120,8 +134,7 @@ def generate_audio_files():
     ]
     
     for i, text in enumerate(numbers_0_20):
-        # Gunakan slow=True untuk angka agar lebih jelas
-        create_audio_file(text, f"{i}.mp3", slow=True)
+        create_audio_file(text, f"{i}.mp3")
     
     # 3. Kelipatan 10 (30, 40, 50, ..., 90)
     print("\n3. Generating tens (30-90)...")
@@ -136,7 +149,7 @@ def generate_audio_files():
     }
     
     for num, text in tens.items():
-        create_audio_file(text, f"{num}.mp3", slow=True)
+        create_audio_file(text, f"{num}.mp3")
     
     # 4. Ratusan (100, 200, 300, ..., 900)
     print("\n4. Generating hundreds (100-900)...")
@@ -153,7 +166,7 @@ def generate_audio_files():
     }
     
     for num, text in hundreds.items():
-        create_audio_file(text, f"{num}.mp3", slow=True)
+        create_audio_file(text, f"{num}.mp3")
     
     # 5. SKIP letter prefixes (tidak digunakan lagi - hanya angka)
     print("\n5. Letter prefixes skipped (number-only system)")
@@ -163,16 +176,18 @@ def generate_audio_files():
     print("="*60)
     print(f"\nTotal files created in '{AUDIO_DIR}/' directory")
     print("\nFiles generated:")
-    print("- chime.mp3 (attention sound)")
-    print("- prefix.mp3, suffix.mp3 (slow mode)")
-    print("- 0.mp3 to 20.mp3 (21 files, slow mode)")
-    print("- 30.mp3, 40.mp3, ..., 90.mp3 (7 files, slow mode)")
-    print("- 100.mp3, 200.mp3, ..., 900.mp3 (9 files, slow mode)")
-    print(f"\nTotal: ~40 files for support 001-999 (number only)")
-    print("\nAudio improvements:")
-    print("✓ Slow mode enabled for clarity")
-    print("✓ Chime sound for attention")
-    print("✓ Professional timing and pauses")
+    print("- chime.wav (ding-dong attention sound)")
+    print("- prefix.wav, suffix.wav (natural voice)")
+    print("- 0.wav to 20.wav (21 files)")
+    print("- 30.wav, 40.wav, ..., 90.wav (7 files)")
+    print("- 100.wav, 200.wav, ..., 900.wav (9 files)")
+    print(f"\nTotal: ~40 WAV files for support 001-999 (number only)")
+    print("\nAudio configuration:")
+    print("✓ Format: WAV 48kHz stereo 24-bit PCM (Professional/Broadcast Quality)")
+    print("✓ Volume: -3dB (optimal clarity)")
+    print("✓ Natural humanis voice with Indonesian accent")
+    print("✓ 0.3s silence appended (prevent abrupt cutoff)")
+    print("✓ Custom chime from chime.mp3")
     print("✓ Number-only system (no letter prefix)")
 
 if __name__ == "__main__":

@@ -33,7 +33,7 @@ except ImportError:
     PYGAME_AVAILABLE = False
 
 AUDIO_DIR = "audio"
-TEMP_OUTPUT = os.path.join(AUDIO_DIR, "temp_combined.mp3")
+TEMP_OUTPUT = os.path.join(AUDIO_DIR, "temp_combined.wav")
 
 def parse_queue_number(queue_str):
     """
@@ -108,29 +108,29 @@ def play_with_pydub(queue_str, letter, number, parts):
         combined = AudioSegment.empty()
         
         # 0. CHIME (attention sound)
-        chime_path = get_audio_path("chime.mp3")
+        chime_path = get_audio_path("chime.wav")
         if os.path.exists(chime_path):
-            combined += AudioSegment.from_mp3(chime_path)
+            combined += AudioSegment.from_wav(chime_path)
             combined += AudioSegment.silent(duration=500)  # 500ms pause after chime
         
         # 1. PREFIX
-        prefix_path = get_audio_path("prefix.mp3")
+        prefix_path = get_audio_path("prefix.wav")
         if os.path.exists(prefix_path):
-            combined += AudioSegment.from_mp3(prefix_path)
+            combined += AudioSegment.from_wav(prefix_path)
             combined += AudioSegment.silent(duration=300)  # 300ms pause
         
         # 2. LETTER (skip jika tidak ada)
         if letter:
-            letter_path = get_audio_path(f"letter_{letter}.mp3")
+            letter_path = get_audio_path(f"letter_{letter}.wav")
             if os.path.exists(letter_path):
-                combined += AudioSegment.from_mp3(letter_path)
+                combined += AudioSegment.from_wav(letter_path)
                 combined += AudioSegment.silent(duration=200)  # 200ms pause
         
         # 3. NUMBER PARTS
         for i, part in enumerate(parts):
-            part_path = get_audio_path(f"{part}.mp3")
+            part_path = get_audio_path(f"{part}.wav")
             if os.path.exists(part_path):
-                combined += AudioSegment.from_mp3(part_path)
+                combined += AudioSegment.from_wav(part_path)
                 # Pause lebih pendek antar digit, lebih lama di akhir
                 if i < len(parts) - 1:
                     combined += AudioSegment.silent(duration=150)  # 150ms between numbers
@@ -138,13 +138,13 @@ def play_with_pydub(queue_str, letter, number, parts):
                     combined += AudioSegment.silent(duration=300)  # 300ms before suffix
         
         # 4. SUFFIX
-        suffix_path = get_audio_path("suffix.mp3")
+        suffix_path = get_audio_path("suffix.wav")
         if os.path.exists(suffix_path):
-            combined += AudioSegment.from_mp3(suffix_path)
+            combined += AudioSegment.from_wav(suffix_path)
         
         # Export ke file temporary di folder audio (bukan temp Windows)
         print(f"  Saving combined audio to: {TEMP_OUTPUT}")
-        combined.export(TEMP_OUTPUT, format="mp3")
+        combined.export(TEMP_OUTPUT, format="wav")
         
         # Play menggunakan pygame
         if PYGAME_AVAILABLE:
@@ -184,31 +184,31 @@ def play_sequential(queue_str, letter, number, parts):
         files_to_play = []
         
         # 0. CHIME (attention sound) - pause lebih lama setelahnya
-        chime_path = get_audio_path("chime.mp3")
+        chime_path = get_audio_path("chime.wav")
         if os.path.exists(chime_path):
             files_to_play.append((chime_path, 0.5))  # 500ms pause after chime
         
         # 1. PREFIX - pause sedang setelahnya
-        prefix_path = get_audio_path("prefix.mp3")
+        prefix_path = get_audio_path("prefix.wav")
         if os.path.exists(prefix_path):
             files_to_play.append((prefix_path, 0.3))  # 300ms pause
         
         # 2. LETTER - pause pendek (skip jika tidak ada huruf)
         if letter:
-            letter_path = get_audio_path(f"letter_{letter}.mp3")
+            letter_path = get_audio_path(f"letter_{letter}.wav")
             if os.path.exists(letter_path):
                 files_to_play.append((letter_path, 0.2))  # 200ms pause
         
         # 3. NUMBER PARTS - pause minimal antar angka
         for i, part in enumerate(parts):
-            part_path = get_audio_path(f"{part}.mp3")
+            part_path = get_audio_path(f"{part}.wav")
             if os.path.exists(part_path):
                 # Pause lebih pendek antar digit, lebih lama di akhir
                 pause = 0.15 if i < len(parts) - 1 else 0.3
                 files_to_play.append((part_path, pause))
         
         # 4. SUFFIX - no pause after (end)
-        suffix_path = get_audio_path("suffix.mp3")
+        suffix_path = get_audio_path("suffix.wav")
         if os.path.exists(suffix_path):
             files_to_play.append((suffix_path, 0))
         
