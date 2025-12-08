@@ -340,15 +340,26 @@ if __name__ == "__main__":
     
     # Check dependencies
     print("Checking dependencies...")
-    if PYDUB_AVAILABLE:
-        print("  ✓ pydub available")
-    else:
-        print("  ✗ pydub not available")
     
-    if PYGAME_AVAILABLE:
-        print("  ✓ pygame available")
+    if IS_TERMUX:
+        print("  Platform: Termux/Android")
+        if PYDUB_AVAILABLE:
+            print("  ✓ pydub available (audio combining)")
+            print("  ✓ ffplay available (audio playback)")
+        else:
+            print("  ✗ pydub not available - install: pip install pydub")
+        print("  ℹ pygame not needed on Termux (using ffplay)")
     else:
-        print("  ✗ pygame not available")
+        print("  Platform: Windows/Linux")
+        if PYDUB_AVAILABLE:
+            print("  ✓ pydub available")
+        else:
+            print("  ✗ pydub not available")
+        
+        if PYGAME_AVAILABLE:
+            print("  ✓ pygame available")
+        else:
+            print("  ✗ pygame not available")
     
     if not PYDUB_AVAILABLE and not PYGAME_AVAILABLE:
         print("\nERROR: No audio library installed!")
