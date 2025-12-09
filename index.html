@@ -305,11 +305,11 @@
         const btnCall = document.getElementById('btnCall');
         const btnRecall = document.getElementById('btnRecall');
         const btnPrint = document.getElementById('btnPrint');
-        const btnReset = document.getElementById('btnReset');
-        const currentCalled = document.getElementById('currentCalled');
-        const nextQueue = document.getElementById('nextQueue');
-        const esp32Status = document.getElementById('esp32Status');
-        const serverStatus = document.getElementById('serverStatus');
+        // const btnReset = document.getElementById('btnReset');
+        // const currentCalled = document.getElementById('currentCalled');
+        // const nextQueue = document.getElementById('nextQueue');
+        // const esp32Status = document.getElementById('esp32Status');
+        // const serverStatus = document.getElementById('serverStatus');
 
         // Connect to WebSocket Server
         function connect() {
@@ -381,36 +381,36 @@
 
         // Update status display
         function updateStatus(data) {
-            currentCalled.textContent = data.currentCalled;
-            nextQueue.textContent = data.nextQueue;
+            // currentCalled.textContent = data.currentCalled;
+            // nextQueue.textContent = data.nextQueue;
             
             // Update ESP32 status
-            if (data.esp32Connected) {
-                esp32Status.textContent = 'CONNECTED';
-                esp32Status.className = 'connection-status connected';
-            } else {
-                esp32Status.textContent = 'DISCONNECTED';
-                esp32Status.className = 'connection-status disconnected';
-            }
+            // if (data.esp32Connected) {
+            //     esp32Status.textContent = 'CONNECTED';
+            //     esp32Status.className = 'connection-status connected';
+            // } else {
+            //     esp32Status.textContent = 'DISCONNECTED';
+            //     esp32Status.className = 'connection-status disconnected';
+            // }
             
             // Add animation
-            currentCalled.classList.add('updating');
-            nextQueue.classList.add('updating');
-            setTimeout(() => {
-                currentCalled.classList.remove('updating');
-                nextQueue.classList.remove('updating');
-            }, 500);
+            // currentCalled.classList.add('updating');
+            // nextQueue.classList.add('updating');
+            // setTimeout(() => {
+            //     currentCalled.classList.remove('updating');
+            //     nextQueue.classList.remove('updating');
+            // }, 500);
         }
 
         // Update server status
         function updateServerStatus(connected) {
-            if (connected) {
-                serverStatus.textContent = 'CONNECTED';
-                serverStatus.className = 'connection-status connected';
-            } else {
-                serverStatus.textContent = 'DISCONNECTED';
-                serverStatus.className = 'connection-status disconnected';
-            }
+            // if (connected) {
+            //     serverStatus.textContent = 'CONNECTED';
+            //     serverStatus.className = 'connection-status connected';
+            // } else {
+            //     serverStatus.textContent = 'DISCONNECTED';
+            //     serverStatus.className = 'connection-status disconnected';
+            // }
         }
 
         // Enable all buttons
@@ -418,7 +418,7 @@
             btnCall.disabled = false;
             btnRecall.disabled = false;
             btnPrint.disabled = false;
-            btnReset.disabled = false;
+            // btnReset.disabled = false;
         }
 
         // Disable all buttons
@@ -426,7 +426,7 @@
             btnCall.disabled = true;
             btnRecall.disabled = true;
             btnPrint.disabled = true;
-            btnReset.disabled = true;
+            // btnReset.disabled = true;
         }
 
         // Initialize connection on page load
