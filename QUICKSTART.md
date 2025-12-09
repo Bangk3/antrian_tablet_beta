@@ -5,8 +5,8 @@
 ### 1️⃣ Di Termux (Tablet Android)
 
 ```bash
-# Install dependencies
-pkg install nodejs sox avahi python -y
+# Install dependencies (tanpa Avahi - UDP Discovery lebih reliable!)
+pkg install nodejs sox python -y
 
 # Masuk ke folder project
 cd ~/antrian_tablet_beta
@@ -14,15 +14,26 @@ cd ~/antrian_tablet_beta
 # Install NPM packages
 npm install
 
-# Setup Avahi mDNS
-npm run setup-avahi
-
 # Generate audio files (jika belum)
 python generate_audio.py
 
 # Jalankan server
 npm start
 ```
+
+**💡 REKOMENDASI: Skip Avahi!**
+- ✅ **UDP Discovery lebih reliable** di Termux
+- ✅ Tidak ada dependency issues
+- ✅ Tidak ada daemon errors
+- ✅ Production-ready without mDNS
+
+**Jika tetap ingin coba Avahi (optional):**
+```bash
+pkg install root-repo
+pkg install avahi runit
+npm run setup-avahi
+```
+⚠️ Sering error: "unable to change to service directory" - **lebih baik skip!**
 
 ### 2️⃣ Di Arduino IDE (ESP32)
 
@@ -103,8 +114,14 @@ lsof -i :8080
 kill -9 $(lsof -t -i:8080)
 ```
 
-### Avahi error
+### Avahi error / tidak bisa install
 ```bash
+# Install root-repo terlebih dahulu
+pkg install root-repo
+
+# Kemudian install avahi
+pkg install avahi runit
+
 # Check status
 sv status avahi-daemon
 
@@ -114,6 +131,11 @@ sv restart avahi-daemon
 # Enable auto-start
 sv-enable avahi-daemon
 ```
+
+**Jika tetap gagal:**
+- ✅ Sistem tetap berfungsi dengan UDP Discovery
+- ✅ Tidak perlu mDNS untuk production
+- ℹ️ UDP Discovery lebih reliable di beberapa Android devices
 
 ### ESP32 tidak connect
 1. Pastikan SSID & password benar

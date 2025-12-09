@@ -67,25 +67,78 @@ if [ "$IS_TERMUX" = true ]; then
     # Install Avahi for mDNS
     echo "[6/8] Installing Avahi (mDNS support)..."
     if ! command -v avahi-daemon &> /dev/null; then
+        echo "  Installing from root-repo..."
+        pkg install -y root-repo
         pkg install -y avahi runit
-        echo "  ✓ Avahi installed"
+        
+        if command -v avahi-daemon &> /dev/null; then
+            echo "  ✓ Avahi installed"
+            
+            # Create required directories
+            echo "  Creating Avahi directories..."
+            mkdir -p $PREFIX/etc/avahi
+            mkdir -p $PREFIX/etc/avahi/services
+            mkdir -p $PREFIX/var/run/avahi-daemon
+            
+            # Create minimal avahi-daemon.conf if not exists
+            if [ ! -f "$PREFIX/etc/avahi/avahi-daemon.conf" ]; then
+                cat > $PREFIX/etc/avahi/avahi-daemon.conf << 'EOF'
+[server]
+use-ipv4=yes
+use-ipv6=no
+enable-dbus=no
+allow-interfaces=wlan0,ap0
+
+[publish]
+publish-addresses=yes
+publish-hinfo=no
+publish-workstation=no
+publish-domain=no
+
+[reflector]
+enable-reflector=no
+
+[rlimits]
+EOF
+                echo "  ✓ Avahi config created"
+            fi
+        else
+            echo "  ⚠ Avahi installation failed"
+            echo "  ℹ mDNS will not work, but UDP Discovery will still function"
+            echo "  ℹ Manual install: pkg install root-repo && pkg install avahi"
+        fi
     else
         echo "  ✓ Avahi already installed"
+        
+        # Ensure directories exist even if already installed
+        mkdir -p $PREFIX/etc/avahi/services
+        mkdir -p $PREFIX/var/run/avahi-daemon
     fi
     
-    # Enable and start Avahi daemon
-    echo "[7/8] Setting up Avahi service..."
-    if sv-enable avahi-daemon 2>/dev/null; then
-        echo "  ✓ Avahi service enabled"
-    fi
-    if sv up avahi-daemon 2>/dev/null; then
-        echo "  ✓ Avahi daemon started"
-    fi
-    sleep 1
-    if sv status avahi-daemon 2>/dev/null | grep -q "run"; then
-        echo "  ✓ Avahi is running (mDNS active)"
+    # Enable and start Avahi daemon (only if installed)
+    if command -v avahi-daemon &> /dev/null; then
+        echo "[7/8] Setting up Avahi service..."
+        
+        if sv-enable avahi-daemon 2>/dev/null; then
+            echo "  ✓ Avahi service enabled"
+        fi
+        
+        if sv up avahi-daemon 2>/dev/null; then
+            echo "  ✓ Avahi daemon started"
+        fi
+        
+        sleep 2
+        
+        if sv status avahi-daemon 2>/dev/null | grep -q "run"; then
+            echo "  ✓ Avahi is running (mDNS active)"
+        else
+            echo "  ⚠ Avahi failed to start"
+            echo "  ℹ Common issue in Termux, mDNS might not work"
+            echo "  ℹ System will use UDP Discovery instead (more reliable)"
+        fi
     else
-        echo "  ⚠ Avahi may need manual start: sv-enable avahi-daemon && sv up avahi-daemon"
+        echo "[7/8] Skipping Avahi setup (not installed)"
+        echo "  ℹ System will use UDP Discovery only"
     fi
     
     # Setup storage access

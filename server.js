@@ -285,11 +285,29 @@ function setupMDNS() {
     const localIP = getLocalIP();
     console.log('[mDNS] Setting up mDNS service...');
     
-    // Di Termux, kita menggunakan avahi-daemon
-    // Install: pkg install avahi
-    // Service file akan dibuat di: $PREFIX/etc/avahi/services/
-    
-    const avahiServiceContent = `<?xml version="1.0" standalone='no'?>
+    // Coba setup avahi service
+    exec('which avahi-daemon', (error) => {
+        if (error) {
+            console.log('[mDNS] ⚠ Avahi not installed');
+            console.log('[mDNS] ℹ Install: pkg install root-repo && pkg install avahi');
+            console.log('[mDNS] ℹ Using UDP Discovery only (recommended)');
+            return;
+        }
+        
+        // Ensure directories exist
+        const avahiDir = process.env.PREFIX ? 
+            `${process.env.PREFIX}/etc/avahi/services` : 
+            '/data/data/com.termux/files/usr/etc/avahi/services';
+        
+        exec(`mkdir -p ${avahiDir}`, (mkdirErr) => {
+            if (mkdirErr) {
+                console.log('[mDNS] ⚠ Could not create avahi directory');
+                console.log('[mDNS] ℹ Using UDP Discovery only');
+                return;
+            }
+            
+            // Create avahi service file
+            const avahiServiceContent = `<?xml version="1.0" standalone='no'?>
 <!DOCTYPE service-group SYSTEM "avahi-service.dtd">
 <service-group>
   <name replace-wildcards="yes">Antrian Server on %h</name>
@@ -303,32 +321,35 @@ function setupMDNS() {
     <port>${PORT}</port>
   </service>
 </service-group>`;
-
-    // Coba setup avahi service
-    exec('which avahi-daemon', (error) => {
-        if (error) {
-            console.log('[mDNS] ⚠ Avahi not installed. Install with: pkg install avahi');
-            console.log('[mDNS] ⚠ Using UDP Discovery only');
-            return;
-        }
-        
-        // Write avahi service file
-        const serviceFile = '/data/data/com.termux/files/usr/etc/avahi/services/antrian.service';
-        fs.writeFile(serviceFile, avahiServiceContent, (err) => {
-            if (err) {
-                console.log('[mDNS] ⚠ Could not write avahi service file:', err.message);
-                console.log('[mDNS] ⚠ Using UDP Discovery only');
-                return;
-            }
             
-            // Restart avahi daemon
-            exec('sv restart avahi-daemon 2>/dev/null || true', (error) => {
-                if (!error) {
-                    console.log(`[mDNS] ✓ Service published: ${MDNS_HOSTNAME}.local`);
-                    console.log(`[mDNS] ✓ ESP32 can connect to: ws://${MDNS_HOSTNAME}.local:${PORT}`);
-                } else {
-                    console.log('[mDNS] ⚠ Avahi daemon not running. Start with: sv-enable avahi-daemon && sv up avahi-daemon');
+            const serviceFile = `${avahiDir}/antrian.service`;
+            fs.writeFile(serviceFile, avahiServiceContent, (err) => {
+                if (err) {
+                    console.log('[mDNS] ⚠ Could not write service file:', err.message);
+                    console.log('[mDNS] ℹ Using UDP Discovery only');
+                    return;
                 }
+                
+                // Check if avahi daemon is running
+                exec('sv status avahi-daemon 2>/dev/null', (statusErr, stdout) => {
+                    if (statusErr || !stdout.includes('run')) {
+                        console.log('[mDNS] ⚠ Avahi daemon not running');
+                        console.log('[mDNS] ℹ Note: Avahi often has issues in Termux');
+                        console.log('[mDNS] ℹ UDP Discovery is more reliable - already active!');
+                        return;
+                    }
+                    
+                    // Reload avahi daemon
+                    exec('sv reload avahi-daemon 2>/dev/null || sv restart avahi-daemon 2>/dev/null', (reloadErr) => {
+                        if (!reloadErr) {
+                            console.log(`[mDNS] ✓ Service published: ${MDNS_HOSTNAME}.local`);
+                            console.log(`[mDNS] ✓ ESP32 can connect to: ws://${MDNS_HOSTNAME}.local:${PORT}`);
+                        } else {
+                            console.log('[mDNS] ⚠ Could not reload avahi daemon');
+                            console.log('[mDNS] ℹ UDP Discovery is more reliable anyway!');
+                        }
+                    });
+                });
             });
         });
     });
