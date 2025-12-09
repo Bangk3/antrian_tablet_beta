@@ -162,20 +162,26 @@
         .btn-recall {
             background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%);
             color: white;
+            grid-column: 1 / -1;
+            font-size: 20px;
+            padding: 25px;
         }
 
         .btn-print {
             background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
             color: white;
+            grid-column: 1 / -1;
+            font-size: 20px;
+            padding: 25px;
         }
 
-        .btn-reset {
+        /* .btn-reset {
             background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
             color: white;
             grid-column: 1 / -1;
             font-size: 14px;
             padding: 15px;
-        }
+        } */
 
         .info-box {
             background: #fff3cd;
@@ -246,7 +252,7 @@
             <p class="subtitle">Control Panel v1.0</p>
         </div>
 
-        <div class="status-section">
+        <!-- <div class="status-section">
             <div class="status-row">
                 <span class="status-label">Nomor Dipanggil:</span>
                 <span class="status-value called" id="currentCalled">-</span>
@@ -263,7 +269,7 @@
                 <span class="status-label">Status Server:</span>
                 <span class="connection-status disconnected" id="serverStatus">DISCONNECTED</span>
             </div>
-        </div>
+        </div> -->
 
         <div class="controls">
             <button class="btn btn-call" id="btnCall" onclick="sendCommand('CALL')" disabled>
@@ -275,17 +281,17 @@
             <button class="btn btn-print" id="btnPrint" onclick="sendCommand('PRINT')" disabled>
                 🖨️ CETAK NOMOR
             </button>
-            <button class="btn btn-reset" id="btnReset" onclick="sendCommand('RESET')" disabled>
+            <!-- <button class="btn btn-reset" id="btnReset" onclick="sendCommand('RESET')" disabled>
                 ⚠️ RESET SISTEM
-            </button>
+            </button> -->
         </div>
 
-        <div class="info-box">
+        <!-- <div class="info-box">
             <p><strong>CALL:</strong> Panggil nomor antrian berikutnya dan tampilkan di display.</p>
             <p><strong>RECALL:</strong> Panggil ulang nomor yang terakhir dipanggil.</p>
             <p><strong>PRINT:</strong> Cetak nomor antrian baru untuk pengunjung.</p>
             <p><strong>RESET:</strong> Reset sistem ke nomor A001 (gunakan dengan hati-hati).</p>
-        </div>
+        </div> -->
     </div>
 
     <script>
