@@ -2,7 +2,7 @@ const WebSocket = require('ws');
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
-const { exec } = require('child_process');
+const { exec, spawn } = require('child_process');
 
 // =====================================================
 // KONFIGURASI SERVER
@@ -84,21 +84,19 @@ function sendStatusToBrowser() {
 function playAudio(queueNumber) {
     console.log(`[AUDIO] Playing: ${queueNumber}`);
     
-    // Jalankan Python script untuk play audio
-    // Audio sudah include: chime sound, slow mode gTTS, dan timing profesional
-    exec(`python audio_player.py ${queueNumber}`, (error, stdout, stderr) => {
-        if (error) {
-            console.error('[AUDIO] Error:', error.message);
-            console.error('[AUDIO] Make sure: 1) audio/ folder exists, 2) pygame installed');
-            return;
-        }
-        if (stderr && stderr.trim() !== '') {
-            console.error('[AUDIO] Stderr:', stderr);
-        }
-        if (stdout && stdout.trim() !== '') {
-            console.log('[AUDIO] Output:', stdout.trim());
-        }
+    // Jalankan Python script untuk play audio (non-blocking untuk instant response)
+    // Menggunakan spawn agar tidak blocking dan lebih cepat
+    const audioProcess = spawn('python', ['audio_player.py', queueNumber], {
+        detached: false,
+        stdio: 'ignore'  // Ignore output untuk speed
     });
+    
+    audioProcess.on('error', (error) => {
+        console.error('[AUDIO] Error:', error.message);
+    });
+    
+    // Don't wait for process to finish - let it run in background
+    audioProcess.unref();
 }
 
 // Cetak nomor antrian via Bluetooth

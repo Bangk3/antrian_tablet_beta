@@ -48,11 +48,11 @@ def create_audio_file(text, filename, slow=False):
         
         tts.save(mp3_path)
         
-        # Convert to 48kHz stereo 24-bit signed PCM for professional humanis quality
-        os.system(f'ffmpeg -y -loglevel quiet -i "{mp3_path}" -ar 48000 -ac 2 -c:a pcm_s24le -filter:a "volume=-3dB" "{tmp_wav_path}"')
+        # Convert to 22kHz mono 16-bit signed PCM for faster loading and smaller file size
+        os.system(f'ffmpeg -y -loglevel quiet -i "{mp3_path}" -ar 22050 -ac 1 -c:a pcm_s16le -filter:a "volume=-3dB" "{tmp_wav_path}"')
         
-        # Append 0.3s silence to avoid GTTS trimming/abrupt cutoff
-        os.system(f'ffmpeg -y -loglevel quiet -i "{tmp_wav_path}" -f lavfi -t 0.3 -i anullsrc=channel_layout=stereo:sample_rate=48000 -filter_complex "[0:a][1:a]concat=n=2:v=0:a=1[out]" -map "[out]" -c:a pcm_s24le "{wav_path}"')
+        # Append 0.2s silence to avoid GTTS trimming/abrupt cutoff (reduced from 0.3s)
+        os.system(f'ffmpeg -y -loglevel quiet -i "{tmp_wav_path}" -f lavfi -t 0.2 -i anullsrc=channel_layout=mono:sample_rate=22050 -filter_complex "[0:a][1:a]concat=n=2:v=0:a=1[out]" -map "[out]" -c:a pcm_s16le "{wav_path}"')
         
         # Cleanup temporary files
         if os.path.exists(tmp_wav_path):
@@ -80,12 +80,12 @@ def generate_chime_sound():
         print(f"✗ chime.mp3 not found in root folder")
         return False
     
-    print("Converting chime.mp3 to WAV format (48kHz 24-bit) dengan volume normalisasi...")
+    print("Converting chime.mp3 to WAV format (22kHz mono 16-bit) dengan volume normalisasi...")
     
     try:
         # Convert chime.mp3 to WAV dengan volume dikurangi agar seimbang dengan suara lain
-        os.system(f'ffmpeg -y -loglevel quiet -i "{chime_mp3_root}" -ar 48000 -ac 2 -c:a pcm_s24le -filter:a "volume=-6dB" "{chime_wav_path}"')
-        print(f"✓ Converted: chime.mp3 -> chime.wav (volume balanced)")
+        os.system(f'ffmpeg -y -loglevel quiet -i "{chime_mp3_root}" -ar 22050 -ac 1 -c:a pcm_s16le -filter:a "volume=-6dB" "{chime_wav_path}"')
+        print(f"✓ Converted: chime.mp3 -> chime.wav (volume balanced, optimized for speed)")
         return True
         
     except Exception as e:
@@ -183,10 +183,10 @@ def generate_audio_files():
     print("- 100.wav, 200.wav, ..., 900.wav (9 files)")
     print(f"\nTotal: ~40 WAV files for support 001-999 (number only)")
     print("\nAudio configuration:")
-    print("✓ Format: WAV 48kHz stereo 24-bit PCM (Professional/Broadcast Quality)")
+    print("✓ Format: WAV 22kHz mono 16-bit PCM (Optimized for Speed)")
     print("✓ Volume: -3dB (optimal clarity)")
     print("✓ Natural humanis voice with Indonesian accent")
-    print("✓ 0.3s silence appended (prevent abrupt cutoff)")
+    print("✓ 0.2s silence appended (prevent abrupt cutoff)")
     print("✓ Custom chime from chime.mp3")
     print("✓ Number-only system (no letter prefix)")
 

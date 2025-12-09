@@ -15,34 +15,9 @@ Contoh:
 import os
 import sys
 import re
-import time
 import subprocess
-import platform
-
-# Deteksi platform
-IS_TERMUX = 'com.termux' in os.environ.get('PREFIX', '')
-IS_ANDROID = platform.system() == 'Linux' and os.path.exists('/system/build.prop')
-
-# Import conditional berdasarkan platform
-try:
-    from pydub import AudioSegment
-    import tempfile
-    PYDUB_AVAILABLE = True
-except ImportError:
-    PYDUB_AVAILABLE = False
-
-# Fallback: gunakan pygame untuk Windows (tidak di Termux)
-try:
-    if not IS_TERMUX:
-        import pygame
-        PYGAME_AVAILABLE = True
-    else:
-        PYGAME_AVAILABLE = False
-except ImportError:
-    PYGAME_AVAILABLE = False
 
 AUDIO_DIR = "audio"
-TEMP_OUTPUT = os.path.join(AUDIO_DIR, "temp_combined.wav")
 
 def parse_queue_number(queue_str):
     """
@@ -111,184 +86,49 @@ def get_audio_path(filename):
     """Get full path to audio file"""
     return os.path.join(AUDIO_DIR, filename)
 
-def play_with_pydub(queue_str, letter, number, parts):
-    """Play audio menggunakan pydub dengan timing profesional"""
+def play_with_sox(queue_str, letter, number, parts):
+    """Play audio menggunakan sox (play command) - simple and fast"""
     try:
-        combined = AudioSegment.empty()
+        # List semua file yang akan diputar
+        files_to_play = []
         
         # 0. CHIME (attention sound)
         chime_path = get_audio_path("chime.wav")
         if os.path.exists(chime_path):
-            combined += AudioSegment.from_wav(chime_path)
-            combined += AudioSegment.silent(duration=500)  # 500ms pause after chime
+            files_to_play.append(chime_path)
         
         # 1. PREFIX
         prefix_path = get_audio_path("prefix.wav")
         if os.path.exists(prefix_path):
-            combined += AudioSegment.from_wav(prefix_path)
-            combined += AudioSegment.silent(duration=300)  # 300ms pause
+            files_to_play.append(prefix_path)
         
         # 2. LETTER (skip jika tidak ada)
         if letter:
             letter_path = get_audio_path(f"letter_{letter}.wav")
             if os.path.exists(letter_path):
-                combined += AudioSegment.from_wav(letter_path)
-                combined += AudioSegment.silent(duration=200)  # 200ms pause
+                files_to_play.append(letter_path)
         
         # 3. NUMBER PARTS
-        for i, part in enumerate(parts):
+        for part in parts:
             part_path = get_audio_path(f"{part}.wav")
             if os.path.exists(part_path):
-                combined += AudioSegment.from_wav(part_path)
-                # Pause lebih pendek antar digit, lebih lama di akhir
-                if i < len(parts) - 1:
-                    combined += AudioSegment.silent(duration=150)  # 150ms between numbers
-                else:
-                    combined += AudioSegment.silent(duration=300)  # 300ms before suffix
+                files_to_play.append(part_path)
         
         # 4. SUFFIX
         suffix_path = get_audio_path("suffix.wav")
         if os.path.exists(suffix_path):
-            combined += AudioSegment.from_wav(suffix_path)
+            files_to_play.append(suffix_path)
         
-        # Export ke file temporary di folder audio (bukan temp Windows)
-        print(f"  Saving combined audio to: {TEMP_OUTPUT}")
-        combined.export(TEMP_OUTPUT, format="wav")
-        
-        # Play berdasarkan platform
-        if IS_TERMUX:
-            # Termux: prioritaskan sox (paling mudah), lalu ffplay
-            print(f"  Playing audio (Termux)...")
-            
-            # Method 1: sox/play (paling mudah - pkg install sox)
-            try:
-                subprocess.run(['play', '-q', TEMP_OUTPUT], check=True, capture_output=True)
-                print(f"  ✓ Finished playing {queue_str} (sox)")
-                return True
-            except FileNotFoundError:
-                pass  # sox tidak terinstall
-            except subprocess.CalledProcessError:
-                pass  # error saat play
-            
-            # Method 2: ffplay (perlu x11-repo & ffmpeg)
-            try:
-                subprocess.run(['ffplay', '-nodisp', '-autoexit', '-loglevel', 'quiet', TEMP_OUTPUT], 
-                             check=True, capture_output=True)
-                print(f"  ✓ Finished playing {queue_str} (ffplay)")
-                return True
-            except FileNotFoundError:
-                pass  # ffplay tidak terinstall
-            except subprocess.CalledProcessError:
-                pass  # error saat ffplay
-            
-            # Method 3: termux-media-player (perlu termux-api)
-            try:
-                subprocess.run(['termux-media-player', 'play', TEMP_OUTPUT], check=True)
-                print(f"  ✓ Finished playing {queue_str} (termux-media-player)")
-                return True
-            except (FileNotFoundError, subprocess.CalledProcessError):
-                pass
-            
-            # Gagal semua
-            print(f"  ✗ No audio player found in Termux!")
-            print(f"  Install one of these:")
-            print(f"    • pkg install sox (recommended - easiest)")
-            print(f"    • pkg install x11-repo && pkg install ffmpeg")
-            print(f"    • pkg install termux-api")
-            return False
-        elif PYGAME_AVAILABLE:
-            # Windows/Linux dengan pygame
-            pygame.mixer.init()
-            pygame.mixer.music.load(TEMP_OUTPUT)
-            pygame.mixer.music.play()
-            
-            # Wait sampai selesai
-            while pygame.mixer.music.get_busy():
-                time.sleep(0.1)
-            
-            pygame.mixer.quit()
-            print(f"  ✓ Finished playing {queue_str}")
-        else:
-            # Windows fallback: default media player
-            print(f"  ✓ Audio saved to {TEMP_OUTPUT}")
-            print(f"  Playing with default media player...")
-            if hasattr(os, 'startfile'):
-                os.startfile(TEMP_OUTPUT)
-            else:
-                # Linux/Mac fallback
-                subprocess.run(['xdg-open', TEMP_OUTPUT])
-        
+        # Play all files in one command with sox/play
+        # Using -q for quiet mode (no output)
+        subprocess.run(['play', '-q'] + files_to_play, check=True, capture_output=True)
         return True
         
-    except Exception as e:
-        print(f"Error with pydub: {e}")
+    except FileNotFoundError:
         return False
-
-def play_sequential(queue_str, letter, number, parts):
-    """Play audio secara sequential (satu per satu) dengan timing profesional"""
-    if not PYGAME_AVAILABLE:
-        print("Error: pygame not installed for sequential playback")
-        print("Install: pip install pygame")
+    except subprocess.CalledProcessError:
         return False
-    
-    try:
-        pygame.mixer.init()
-        
-        # List semua file yang akan diputar dengan pause duration
-        files_to_play = []
-        
-        # 0. CHIME (attention sound) - pause lebih lama setelahnya
-        chime_path = get_audio_path("chime.wav")
-        if os.path.exists(chime_path):
-            files_to_play.append((chime_path, 0.5))  # 500ms pause after chime
-        
-        # 1. PREFIX - pause sedang setelahnya
-        prefix_path = get_audio_path("prefix.wav")
-        if os.path.exists(prefix_path):
-            files_to_play.append((prefix_path, 0.3))  # 300ms pause
-        
-        # 2. LETTER - pause pendek (skip jika tidak ada huruf)
-        if letter:
-            letter_path = get_audio_path(f"letter_{letter}.wav")
-            if os.path.exists(letter_path):
-                files_to_play.append((letter_path, 0.2))  # 200ms pause
-        
-        # 3. NUMBER PARTS - pause minimal antar angka
-        for i, part in enumerate(parts):
-            part_path = get_audio_path(f"{part}.wav")
-            if os.path.exists(part_path):
-                # Pause lebih pendek antar digit, lebih lama di akhir
-                pause = 0.15 if i < len(parts) - 1 else 0.3
-                files_to_play.append((part_path, pause))
-        
-        # 4. SUFFIX - no pause after (end)
-        suffix_path = get_audio_path("suffix.wav")
-        if os.path.exists(suffix_path):
-            files_to_play.append((suffix_path, 0))
-        
-        # Play satu per satu dengan timing profesional
-        print(f"  Playing {len(files_to_play)} audio segments with professional timing...")
-        for i, (filepath, pause_duration) in enumerate(files_to_play):
-            filename = os.path.basename(filepath)
-            print(f"  [{i+1}/{len(files_to_play)}] {filename}")
-            
-            pygame.mixer.music.load(filepath)
-            pygame.mixer.music.play()
-            
-            # Wait sampai selesai
-            while pygame.mixer.music.get_busy():
-                time.sleep(0.05)
-            
-            # Pause sesuai timing yang ditentukan
-            if pause_duration > 0:
-                time.sleep(pause_duration)
-        
-        pygame.mixer.quit()
-        print(f"  ✓ Finished playing {queue_str}")
-        return True
-        
     except Exception as e:
-        print(f"Error with sequential play: {e}")
         return False
 
 def play_queue_number(queue_str):
@@ -306,34 +146,13 @@ def play_queue_number(queue_str):
     letter, number = parse_queue_number(queue_str)
     
     if number is None:
-        print(f"Error: Invalid queue format '{queue_str}'")
         return False
-    
-    if letter:
-        print(f"\nPlaying: {queue_str} (Letter: {letter}, Number: {number})")
-    else:
-        print(f"\nPlaying: {queue_str} (Number: {number})")
     
     # Get audio parts
     parts = number_to_audio_parts(number)
-    print(f"  Audio parts: {parts}")
     
-    # Try pydub method first (combine then play)
-    if PYDUB_AVAILABLE:
-        print(f"  Method: pydub (combine audio)")
-        return play_with_pydub(queue_str, letter, number, parts)
-    
-    # Fallback: sequential playback
-    elif PYGAME_AVAILABLE:
-        print(f"  Method: pygame (sequential)")
-        return play_sequential(queue_str, letter, number, parts)
-    
-    else:
-        print("Error: No audio library available!")
-        print("Install either:")
-        print("  - pip install pydub pygame")
-        print("  - pip install pygame (simpler)")
-        return False
+    # Play using sox
+    return play_with_sox(queue_str, letter, number, parts)
 
 def test_audio_system():
     """Test beberapa nomor antrian"""
@@ -358,38 +177,21 @@ def test_audio_system():
 if __name__ == "__main__":
     print("""
     ╔════════════════════════════════════════════════════╗
-    ║   AUDIO PLAYER - SISTEM ANTRIAN                   ║
+    ║   AUDIO PLAYER - SISTEM ANTRIAN (SOX)            ║
     ╚════════════════════════════════════════════════════╝
     """)
     
     # Check dependencies
     print("Checking dependencies...")
+    print("  Platform: Termux/Android")
     
-    if IS_TERMUX:
-        print("  Platform: Termux/Android")
-        if PYDUB_AVAILABLE:
-            print("  ✓ pydub available (audio combining)")
-            print("  ✓ ffplay available (audio playback)")
-        else:
-            print("  ✗ pydub not available - install: pip install pydub")
-        print("  ℹ pygame not needed on Termux (using ffplay)")
-    else:
-        print("  Platform: Windows/Linux")
-        if PYDUB_AVAILABLE:
-            print("  ✓ pydub available")
-        else:
-            print("  ✗ pydub not available")
-        
-        if PYGAME_AVAILABLE:
-            print("  ✓ pygame available")
-        else:
-            print("  ✗ pygame not available")
-    
-    if not PYDUB_AVAILABLE and not PYGAME_AVAILABLE:
-        print("\nERROR: No audio library installed!")
-        print("Please install at least one:")
-        print("  pip install pygame           (Recommended for Windows)")
-        print("  pip install pydub            (Alternative)")
+    # Check sox/play
+    try:
+        subprocess.run(['play', '--version'], check=True, capture_output=True)
+        print("  ✓ sox (play command) available")
+    except FileNotFoundError:
+        print("  ✗ sox not installed!")
+        print("  Install with: pkg install sox")
         exit(1)
     
     # Check if audio files exist
@@ -409,6 +211,6 @@ if __name__ == "__main__":
         # Show test
         test_audio_system()
         print("\n" + "="*60)
-        print("Usage: python audio_player.py A22")
-        print("       python audio_player.py B156")
+        print("Usage: python audio_player.py 22")
+        print("       python audio_player.py 156")
         print("="*60)
