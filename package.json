@@ -1,11 +1,12 @@
 {
   "name": "antrian-tablet-system",
-  "version": "1.0.0",
-  "description": "Sistem Antrian dengan Tablet (Hotspot) dan ESP32 Display menggunakan WebSocket",
+  "version": "2.0.0",
+  "description": "Sistem Antrian dengan Tablet (Hotspot) dan ESP32 Display menggunakan WebSocket + mDNS + UDP Discovery",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node server.js"
+    "dev": "node server.js",
+    "setup-avahi": "pkg install avahi && sv-enable avahi-daemon && sv up avahi-daemon"
   },
   "keywords": [
     "antrian",
@@ -13,11 +14,22 @@
     "websocket",
     "esp32",
     "tablet",
-    "p10"
+    "p10",
+    "mdns",
+    "udp-discovery",
+    "avahi"
   ],
   "author": "",
   "license": "MIT",
   "dependencies": {
     "ws": "^8.14.2"
+  },
+  "termux": {
+    "required": [
+      "nodejs",
+      "sox",
+      "avahi",
+      "python"
+    ]
   }
 }

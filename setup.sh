@@ -57,15 +57,39 @@ if [ "$IS_TERMUX" = true ]; then
     fi
     
     # Install ffmpeg for audio processing
-    echo "[5/6] Installing ffmpeg..."
+    echo "[5/8] Installing ffmpeg..."
     if ! command -v ffmpeg &> /dev/null; then
         pkg install -y ffmpeg
     else
         echo "  ✓ FFmpeg already installed"
     fi
     
+    # Install Avahi for mDNS
+    echo "[6/8] Installing Avahi (mDNS support)..."
+    if ! command -v avahi-daemon &> /dev/null; then
+        pkg install -y avahi runit
+        echo "  ✓ Avahi installed"
+    else
+        echo "  ✓ Avahi already installed"
+    fi
+    
+    # Enable and start Avahi daemon
+    echo "[7/8] Setting up Avahi service..."
+    if sv-enable avahi-daemon 2>/dev/null; then
+        echo "  ✓ Avahi service enabled"
+    fi
+    if sv up avahi-daemon 2>/dev/null; then
+        echo "  ✓ Avahi daemon started"
+    fi
+    sleep 1
+    if sv status avahi-daemon 2>/dev/null | grep -q "run"; then
+        echo "  ✓ Avahi is running (mDNS active)"
+    else
+        echo "  ⚠ Avahi may need manual start: sv-enable avahi-daemon && sv up avahi-daemon"
+    fi
+    
     # Setup storage access
-    echo "[6/6] Setting up storage access..."
+    echo "[8/8] Setting up storage access..."
     if [ ! -d "$HOME/storage" ]; then
         termux-setup-storage
         echo "  ✓ Storage access granted"
@@ -176,10 +200,17 @@ if [ "$IS_TERMUX" = true ]; then
     echo "   http://localhost:8080"
     echo ""
     echo "4. Configure ESP32:"
-    echo "   - Edit esp32_client.ino"
+    echo "   - Use example file: esp32_client_example.ino"
     echo "   - Set your hotspot SSID & password"
-    echo "   - Set server IP to 192.168.43.1"
+    echo "   - ESP32 will auto-discover server via:"
+    echo "     • mDNS (antrian-server.local) - Primary"
+    echo "     • UDP Discovery - Fallback"
     echo "   - Upload to ESP32"
+    echo ""
+    echo "5. Discovery Methods Available:"
+    echo "   ✓ mDNS: ws://antrian-server.local:8080"
+    echo "   ✓ UDP: Broadcast on port 9999"
+    echo "   ✓ Direct: ws://192.168.43.1:8080"
     echo ""
 else
     echo "For Desktop/Server:"

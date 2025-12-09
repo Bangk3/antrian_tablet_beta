@@ -3,11 +3,15 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const { exec, spawn } = require('child_process');
+const dgram = require('dgram');
+const os = require('os');
 
 // =====================================================
 // KONFIGURASI SERVER
 // =====================================================
 const PORT = 8080;
+const UDP_DISCOVERY_PORT = 9999;
+const MDNS_HOSTNAME = 'antrian-server';
 
 // =====================================================
 // STATUS ANTRIAN (In-Memory State)
@@ -259,19 +263,159 @@ function handleBrowserCommand(command) {
 }
 
 // =====================================================
+// GET LOCAL IP ADDRESS
+// =====================================================
+function getLocalIP() {
+    const interfaces = os.networkInterfaces();
+    for (const name of Object.keys(interfaces)) {
+        for (const iface of interfaces[name]) {
+            // Skip internal (loopback) and non-IPv4 addresses
+            if (iface.family === 'IPv4' && !iface.internal) {
+                return iface.address;
+            }
+        }
+    }
+    return '127.0.0.1';
+}
+
+// =====================================================
+// mDNS SERVICE (via Avahi in Termux)
+// =====================================================
+function setupMDNS() {
+    const localIP = getLocalIP();
+    console.log('[mDNS] Setting up mDNS service...');
+    
+    // Di Termux, kita menggunakan avahi-daemon
+    // Install: pkg install avahi
+    // Service file akan dibuat di: $PREFIX/etc/avahi/services/
+    
+    const avahiServiceContent = `<?xml version="1.0" standalone='no'?>
+<!DOCTYPE service-group SYSTEM "avahi-service.dtd">
+<service-group>
+  <name replace-wildcards="yes">Antrian Server on %h</name>
+  <service>
+    <type>_antrian._tcp</type>
+    <port>${PORT}</port>
+    <txt-record>path=/</txt-record>
+  </service>
+  <service>
+    <type>_http._tcp</type>
+    <port>${PORT}</port>
+  </service>
+</service-group>`;
+
+    // Coba setup avahi service
+    exec('which avahi-daemon', (error) => {
+        if (error) {
+            console.log('[mDNS] ⚠ Avahi not installed. Install with: pkg install avahi');
+            console.log('[mDNS] ⚠ Using UDP Discovery only');
+            return;
+        }
+        
+        // Write avahi service file
+        const serviceFile = '/data/data/com.termux/files/usr/etc/avahi/services/antrian.service';
+        fs.writeFile(serviceFile, avahiServiceContent, (err) => {
+            if (err) {
+                console.log('[mDNS] ⚠ Could not write avahi service file:', err.message);
+                console.log('[mDNS] ⚠ Using UDP Discovery only');
+                return;
+            }
+            
+            // Restart avahi daemon
+            exec('sv restart avahi-daemon 2>/dev/null || true', (error) => {
+                if (!error) {
+                    console.log(`[mDNS] ✓ Service published: ${MDNS_HOSTNAME}.local`);
+                    console.log(`[mDNS] ✓ ESP32 can connect to: ws://${MDNS_HOSTNAME}.local:${PORT}`);
+                } else {
+                    console.log('[mDNS] ⚠ Avahi daemon not running. Start with: sv-enable avahi-daemon && sv up avahi-daemon');
+                }
+            });
+        });
+    });
+}
+
+// =====================================================
+// UDP DISCOVERY SERVER (Fallback)
+// =====================================================
+function setupUDPDiscovery() {
+    const localIP = getLocalIP();
+    const udpServer = dgram.createSocket('udp4');
+    
+    udpServer.on('error', (err) => {
+        console.error(`[UDP] Server error: ${err.message}`);
+        udpServer.close();
+    });
+    
+    udpServer.on('message', (msg, rinfo) => {
+        const message = msg.toString().trim();
+        console.log(`[UDP] Discovery request from ${rinfo.address}:${rinfo.port} - "${message}"`);
+        
+        // Respond to discovery request
+        if (message === 'ANTRIAN_DISCOVERY' || message === 'DISCOVER_ANTRIAN') {
+            const response = JSON.stringify({
+                type: 'ANTRIAN_SERVER',
+                ip: localIP,
+                port: PORT,
+                hostname: MDNS_HOSTNAME,
+                websocket: `ws://${localIP}:${PORT}`
+            });
+            
+            udpServer.send(response, rinfo.port, rinfo.address, (err) => {
+                if (err) {
+                    console.error(`[UDP] Error sending response: ${err.message}`);
+                } else {
+                    console.log(`[UDP] ✓ Sent discovery response to ${rinfo.address}`);
+                }
+            });
+        }
+    });
+    
+    udpServer.on('listening', () => {
+        const address = udpServer.address();
+        console.log(`[UDP] ✓ Discovery server listening on port ${address.port}`);
+        console.log(`[UDP] ✓ ESP32 can broadcast "ANTRIAN_DISCOVERY" to port ${address.port}`);
+    });
+    
+    // Bind to UDP port
+    udpServer.bind(UDP_DISCOVERY_PORT);
+    
+    return udpServer;
+}
+
+// =====================================================
 // START SERVER
 // =====================================================
+let udpServer = null;
+
 server.listen(PORT, () => {
+    const localIP = getLocalIP();
+    
     console.log('=====================================================');
     console.log('   SISTEM ANTRIAN - WEBSOCKET SERVER');
     console.log('=====================================================');
     console.log(`Server running on port ${PORT}`);
+    console.log(`Local IP: ${localIP}`);
     console.log(`Web Interface: http://127.0.0.1:${PORT}`);
-    console.log(`WebSocket URL: ws://127.0.0.1:${PORT}`);
+    console.log('');
+    console.log('DISCOVERY METHODS:');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    
+    // Setup mDNS
+    setupMDNS();
+    
+    // Setup UDP Discovery
+    udpServer = setupUDPDiscovery();
+    
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('');
+    console.log('ESP32 CONNECTION OPTIONS:');
+    console.log(`  1. mDNS: ws://${MDNS_HOSTNAME}.local:${PORT}`);
+    console.log(`  2. Direct IP: ws://${localIP}:${PORT}`);
+    console.log(`  3. UDP Discovery: Broadcast "ANTRIAN_DISCOVERY" to port ${UDP_DISCOVERY_PORT}`);
     console.log('');
     console.log('CATATAN:');
     console.log('- Pastikan Tablet dalam mode Hotspot');
-    console.log('- ESP32 connect ke: ws://[IP_HOTSPOT]:8080');
+    console.log('- ESP32 dan Tablet harus di network yang sama');
     console.log('- Browser access: http://127.0.0.1:8080');
     console.log('=====================================================');
 });
@@ -281,9 +425,18 @@ server.listen(PORT, () => {
 // =====================================================
 process.on('SIGINT', () => {
     console.log('\n[SHUTDOWN] Closing server...');
+    
+    // Close WebSocket clients
     wss.clients.forEach((client) => {
         client.close();
     });
+    
+    // Close UDP server
+    if (udpServer) {
+        udpServer.close();
+    }
+    
+    // Close HTTP server
     server.close(() => {
         console.log('[SHUTDOWN] Server closed');
         process.exit(0);

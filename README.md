@@ -60,15 +60,26 @@ node server.js
 ## 📦 Komponen Sistem
 
 ```
-┌─────────────────┐
-│ Tablet Android  │ ← WiFi Hotspot + Server
-│   (Termux)      │ ← Web Interface
-└────────┬────────┘
-         │
-    ┌────┴────┐
-    │ ESP32   │ ← P10 LED Display
-    │ + P10   │ ← WebSocket Client
-    └─────────┘
+┌─────────────────────────────────────┐
+│ Tablet Android (Termux)             │
+│                                     │
+│  • WiFi Hotspot                     │
+│  • Node.js Server (WebSocket)       │
+│  • mDNS Service (antrian-server)    │
+│  • UDP Discovery (Port 9999)        │
+│  • Web Interface (Port 8080)        │
+│  • Audio Player (Sox)               │
+└──────────┬──────────────────────────┘
+           │ WiFi Network
+           │ (Auto-Discovery)
+           │
+    ┌──────┴────────┐
+    │ ESP32 + P10   │
+    │               │
+    │  1. mDNS      │ ← antrian-server.local
+    │  2. UDP       │ ← Broadcast discovery
+    │  3. WebSocket │ ← Real-time updates
+    └───────────────┘
 ```
 
 ### Hardware Requirements
@@ -88,7 +99,14 @@ node server.js
 - ✅ **PANGGIL** - Panggil nomor berikutnya
 - 🔄 **PANGGIL ULANG** - Ulangi panggilan
 - 🖨️ **CETAK NOMOR** - Print tiket
-- 🔄 **RESET** - Reset ke nomor 001
+
+### Auto-Discovery
+
+ESP32 otomatis menemukan server dengan 2 metode:
+1. **mDNS** (Primary): `antrian-server.local` - Zero configuration
+2. **UDP Broadcast** (Fallback): Port 9999 - Network discovery
+
+**Tidak perlu hardcode IP!** ✨
 
 ### Audio Output
 
@@ -129,12 +147,15 @@ let nextQueue = 1;
 const queuePrefix = "";  // Kosong = number only
 ```
 
-### 2. ESP32 (esp32_client.ino)
+### 2. ESP32 (main.cpp)
 
 ```cpp
 const char* ssid = "YOUR_HOTSPOT_SSID";
 const char* password = "YOUR_PASSWORD";
-const char* serverIP = "192.168.43.1";  // IP tablet hotspot
+
+// Auto-discovery enabled - no need to hardcode IP!
+const char* mdns_hostname = "antrian-server";  // Will resolve to antrian-server.local
+const int udp_discovery_port = 9999;            // Fallback UDP discovery
 ```
 
 ### 3. Audio (generate_audio.py)
@@ -179,8 +200,12 @@ python audio_player.py 23
 
 1. Cek SSID & password di kode
 2. Pastikan hotspot tablet aktif
-3. IP server benar (`192.168.43.1`)
-4. Cek Serial Monitor untuk error
+3. Pastikan Avahi daemon running: `sv status avahi-daemon`
+4. Cek Serial Monitor untuk debug:
+   - `[mDNS] Server found at: X.X.X.X` ✓
+   - `[UDP] Server found at: X.X.X.X` ✓ (jika mDNS gagal)
+   - `[WS] Connected!` ✓
+5. Jika semua gagal, restart server & ESP32
 
 ### Browser tidak connect
 
@@ -207,15 +232,18 @@ node server.js
 - **Range:** 001-999
 
 ### Network
-- **Protocol:** WebSocket
-- **Port:** 8080
+- **WebSocket:** Port 8080 (Real-time communication)
+- **mDNS:** antrian-server.local (Zero-config discovery)
+- **UDP Discovery:** Port 9999 (Fallback method)
 - **Transport:** JSON messages
+- **Discovery Timeout:** mDNS 5s, UDP 10s
 
 ### Platform
 - **Server:** Node.js 18+
 - **TTS:** Python 3.10+ (gTTS)
-- **Audio:** Sox/FFplay
-- **Client:** ESP32 (Arduino)
+- **Audio:** Sox
+- **mDNS:** Avahi daemon
+- **Client:** ESP32 (Arduino/PlatformIO)
 
 ---
 
@@ -223,15 +251,17 @@ node server.js
 
 ```
 antrian_tablet_beta/
-├── setup.sh              # Auto installer
+├── setup.sh              # Auto installer (with Avahi)
 ├── DOCUMENTATION.md      # Dokumentasi lengkap
+├── QUICKSTART.md         # Quick start guide (5 menit)
+├── SETUP_MDNS_UDP.md     # mDNS + UDP setup guide
+├── ESP32_FIXES.md        # ESP32 bug fixes guide
 ├── README.md             # File ini
-├── server.js             # Node.js WebSocket server
+├── server.js             # Node.js WebSocket server (mDNS + UDP)
 ├── index.html            # Web control interface
 ├── package.json          # Node dependencies
 ├── generate_audio.py     # Audio generator (gTTS)
-├── audio_player.py       # Audio playback system
-├── esp32_client.ino      # ESP32 firmware
+├── audio_player.py       # Audio playback system (Sox)
 ├── chime.mp3             # Bell sound
 └── audio/                # Generated audio files (WAV)
     ├── chime.wav
@@ -240,6 +270,10 @@ antrian_tablet_beta/
     ├── 0.wav - 20.wav
     ├── 30.wav - 90.wav
     └── 100.wav - 900.wav
+
+ESP32 Project (separate folder):
+└── src/
+    └── main.cpp          # ESP32 firmware (with auto-discovery)
 ```
 
 ---
